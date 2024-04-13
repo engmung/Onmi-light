@@ -1,35 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Onmi프로젝트</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jua&display=swap"
+      rel="stylesheet"
+    />
+  </head>
 
-<head>
-    <meta charset="UTF-8">
-    <title>Environmental Conditions to LED Color</title>
-</head>
-
-<body>
-    <h1>Mion 조명만들기</h1>
-    <div>나중엔 css로 꾸미기</div>
+  <body>
+    <h1>Mion 조명</h1>
 
     <h2>미세먼지 설정</h2>
-    최소값: <input type="number" id="pmMin" value="40">
-    최대값: <input type="number" id="pmMax" value="90">
-    최소 색상: <input type="color" id="pmColorMin" value="#00FF00">
-    최대 색상: <input type="color" id="pmColorMax" value="#919191">
+    최소값: <input type="number" id="pmMin" value="40" /> 최대값:
+    <input type="number" id="pmMax" value="90" /> 최소 색상:
+    <input type="color" id="pmColorMin" value="#00FF00" /> 최대 색상:
+    <input type="color" id="pmColorMax" value="#919191" />
 
     <h2>온도 설정</h2>
-    최소값: <input type="number" id="tempMin" value="10">
-    최대값: <input type="number" id="tempMax" value="25">
-    최소 색상: <input type="color" id="tempColorMin" value="#0000ff">
-    최대 색상: <input type="color" id="tempColorMax" value="#ff0000">
+    최소값: <input type="number" id="tempMin" value="10" /> 최대값:
+    <input type="number" id="tempMax" value="25" /> 최소 색상:
+    <input type="color" id="tempColorMin" value="#0000ff" /> 최대 색상:
+    <input type="color" id="tempColorMax" value="#ff0000" />
 
     <h2>현재 상태</h2>
-    미세먼지 농도(㎍/㎥): <input type="range" id="currentPm" min="30" max="120" value="90">
-    현재 온도(°C): <input type="range" id="currentTemp" min="10" max="25" value="25">
-
+    미세먼지 농도(㎍/㎥):
+    <input type="range" id="currentPm" min="30" max="120" value="90" /> 현재
+    온도(°C):
+    <input type="range" id="currentTemp" min="10" max="25" value="25" />
+    <br />
     <button id="reciveAllData">API 값 받아오기</button>
     <button id="updateAllData">색갈 적용</button>
 
     <script src="index.js"></script>
-</body>
-
+  </body>
 </html>
