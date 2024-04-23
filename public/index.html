@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Onmi프로젝트</title>
+    <title>Onmi 프로젝트</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,37 +12,40 @@
     />
   </head>
   <body>
-    <h1>Mion 조명</h1>
+    <h1>Onmi 조명</h1>
+    <input
+      type="text"
+      id="deviceIdInput"
+      placeholder="ID 입력하셈, 테스트는 test"
+    />
+    <button id="loginButton">로그인</button>
 
     <h2>미세먼지 설정</h2>
-    최소값: <input type="number" id="pmMin" value="40" /> 최대값:
-    <input type="number" id="pmMax" value="90" /> 최소 색상:
-    <input type="color" id="pmColorMin" value="#00FF00" /> 최대 색상:
-    <input type="color" id="pmColorMax" value="#919191" />
+    최소값: <input type="number" id="pmMin" /> 최대값:
+    <input type="number" id="pmMax" /> 최소 색상:
+    <input type="color" id="pmColorMin" /> 최대 색상:
+    <input type="color" id="pmColorMax" />
 
     <h2>온도 설정</h2>
-    최소값: <input type="number" id="tempMin" value="10" /> 최대값:
-    <input type="number" id="tempMax" value="25" /> 최소 색상:
-    <input type="color" id="tempColorMin" value="#0000ff" /> 최대 색상:
-    <input type="color" id="tempColorMax" value="#ff0000" />
+    최소값: <input type="number" id="tempMin" /> 최대값:
+    <input type="number" id="tempMax" /> 최소 색상:
+    <input type="color" id="tempColorMin" /> 최대 색상:
+    <input type="color" id="tempColorMax" />
 
     <h2>현재 상태</h2>
     미세먼지 농도(㎍/㎥):
-    <input type="range" id="currentPm" min="30" max="120" value="90" />
-    <span id="currentPmValue">90</span> ㎍/㎥
-    <br />
+    <input type="range" id="currentPm" min="0" max="150" value="90" />
+    <span id="currentPmValue">90</span> ㎍/㎥<br />
     현재 온도(°C):
-    <input type="range" id="currentTemp" min="10" max="25" value="25" />
-    <span id="currentTempValue">25</span> °C
-    <br />
+    <input type="range" id="currentTemp" min="-10" max="45" value="25" />
+    <span id="currentTempValue">25</span> °C<br />
+
     <h2>위치 설정</h2>
     <label for="userLocation">위치 입력:</label>
-    <input
-      type="text"
-      id="userLocation"
-      placeholder="동 입력 (예: 상수동 / 광주 광산구 도산동)"
-    />
+    <input type="text" id="userLocation" placeholder="동 입력 (예: 상수동)" />
     <button id="updateLocation">위치 업데이트</button>
+
+    <button id="submitSettingsButton">설정 저장</button>
 
     <script src="index.js" defer></script>
   </body>

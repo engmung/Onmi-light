@@ -1,4 +1,121 @@
+let currentPm = 90;
+let currentTemp = 25;
+let deviceId = localStorage.getItem("deviceId") || "";
+
 document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("deviceIdInput").value = deviceId;
+  document
+    .getElementById("loginButton")
+    .addEventListener("click", validateAndStoreDeviceId);
+  document
+    .getElementById("submitSettingsButton")
+    .addEventListener("click", submitSettings);
+  document
+    .getElementById("currentPm")
+    .addEventListener("input", updateCurrentPm);
+  document
+    .getElementById("currentTemp")
+    .addEventListener("input", updateCurrentTemp);
+  document
+    .getElementById("updateLocation")
+    .addEventListener("click", function () {
+      const location = document.getElementById("userLocation").value;
+      if (location) {
+        updateLocationAndFetchData(deviceId, location);
+      } else {
+        console.log("Please enter a location.");
+      }
+    });
+
+  loadSettings();
+  updateDisplay();
+});
+
+function updateLocationAndFetchData(deviceId, location) {
+  fetch(`/setLocation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      deviceId,
+      location,
+      pm: currentPm,
+      temp: currentTemp,
+    }),
+  })
+    .then((response) => response.text())
+    .then((data) => {
+      console.log("Location and data updated:", data);
+      fetchDustAndWeatherInfo(deviceId, location);
+    })
+    .catch((error) =>
+      console.error("Error updating location and data:", error)
+    );
+}
+
+function updateLocation() {
+  const location = document.getElementById("userLocation").value;
+  if (location) {
+    updateLocationOnServer(location);
+  } else {
+    console.log("Please enter a location.");
+  }
+}
+
+function updateLocationOnServer(location) {
+  const settings = fetchSettingsFromDOM();
+  settings.location = location;
+
+  fetch("/setLocation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId,
+      location,
+      pm: currentPm,
+      temp: currentTemp,
+      ...settings,
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.message === "Location and settings updated successfully.") {
+        // 서버로부터 색상 정보를 받아 UI 업데이트
+        updateDisplay(data.pmColor, data.tempColor);
+        console.log("Successful update:", data);
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch((error) => console.error("Error updating location:", error));
+}
+
+function fetchDustAndWeatherInfo(deviceId, location) {
+  fetch(
+    `/getDustAndWeatherInfo?deviceId=${encodeURIComponent(
+      deviceId
+    )}&location=${encodeURIComponent(location)}`
+  )
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Environmental data fetched:", data);
+      displayEnvironmentalData(data);
+    })
+    .catch((error) =>
+      console.error("Error fetching environmental data:", error)
+    );
+}
+
+//이거당 이거야
+function displayEnvironmentalData(data) {
+  currentPm = data.dustLevel;
+  currentTemp = data.temperature;
+  updateDisplay();
+  updateServer(fetchSettingsFromDOM());
+}
+
+function loadSettings() {
   const settingsInputs = [
     "pmMin",
     "pmMax",
@@ -9,130 +126,116 @@ document.addEventListener("DOMContentLoaded", () => {
     "tempColorMin",
     "tempColorMax",
     "currentPm",
-    "currentTemp", // range 인풋을 위한 설정 추가
+    "currentTemp",
   ];
-
-  settingsInputs.forEach((inputId) => {
-    document.getElementById(inputId).addEventListener("input", () => {
-      if (inputId === "currentPm" || inputId === "currentTemp") {
-        updateRangeValueDisplay(inputId); // range 값 변경 시 텍스트 업데이트
-      } else {
-        submitSettings();
-      }
-      calculateAndSendColor();
-    });
+  settingsInputs.forEach((id) => {
+    const storedValue = localStorage.getItem(id);
+    if (storedValue) document.getElementById(id).value = storedValue;
   });
+}
 
-  document
-    .getElementById("updateLocation")
-    .addEventListener("click", function () {
-      const location = document.getElementById("userLocation").value;
-      if (location) {
-        fetchDustAndWeatherInfo(location);
-      } else {
-        console.log("Please enter a location.");
-      }
-    });
+function updateLocationOnServer(location) {
+  const settings = fetchSettingsFromDOM();
+  settings.location = location;
 
-  document.addEventListener("click", calculateAndSendColor);
-  submitSettings();
-  calculateAndSendColor();
-});
-
-function fetchDustAndWeatherInfo(location) {
-  Promise.all([
-    fetch(`/getDustInfo?location=${encodeURIComponent(location)}`),
-    fetch(`/getWeatherInfo?location=${encodeURIComponent(location)}`),
-  ])
-    .then(async ([dustRes, weatherRes]) => {
-      const dustData = await dustRes.json();
-      const weatherData = await weatherRes.json();
-      updateValueAndDisplay("currentPm", dustData.dustLevel);
-      updateValueAndDisplay("currentTemp", weatherData.temperature);
-      calculateAndSendColor();
+  fetch("/setLocation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId,
+      location,
+      pm: currentPm,
+      temp: currentTemp,
+      ...settings,
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Location update response:", data);
+      updateDisplay(); // Assumes server returns updated pm and temp values
     })
-    .catch((error) => console.error("Error fetching data:", error));
+    .catch((error) => console.error("Error updating location:", error));
 }
 
-function updateValueAndDisplay(id, value) {
-  const inputElement = document.getElementById(id);
-  const valueDisplayElement = document.getElementById(`${id}Value`);
-  inputElement.value = value;
-  valueDisplayElement.innerText = value;
+function validateAndStoreDeviceId() {
+  deviceId = document.getElementById("deviceIdInput").value;
+  if (deviceId) {
+    localStorage.setItem("deviceId", deviceId);
+    validateDeviceId();
+  } else {
+    alert("유효한 ID를 입력하세요.");
+  }
 }
 
-function updateRangeValueDisplay(id) {
-  const inputElement = document.getElementById(id);
-  const valueDisplayElement = document.getElementById(`${id}Value`);
-  valueDisplayElement.innerText = inputElement.value;
+function validateDeviceId() {
+  fetch(`/validateDeviceId?deviceId=${encodeURIComponent(deviceId)}`)
+    .then((response) =>
+      response.ok
+        ? response.json()
+        : Promise.reject("Failed to validate device ID")
+    )
+    .then((data) => {
+      if (!data.isValid) {
+        alert("Invalid Device ID. Please check and enter again.");
+      }
+    })
+    .catch((error) => {
+      alert("Error validating Device ID: " + error);
+      console.error("Error validating Device ID:", error);
+    });
 }
-
-// 나머지 함수들(submitSettings, calculateAndSendColor, interpolateColor, hexToRgb, rgbToHex)은 이전 코드를 그대로 사용합니다.
 
 function submitSettings() {
-  pmMin = parseInt(document.getElementById("pmMin").value) || 40;
-  pmMax = parseInt(document.getElementById("pmMax").value) || 90;
-  pmColorMin = document.getElementById("pmColorMin").value || "#00FF00";
-  pmColorMax = document.getElementById("pmColorMax").value || "#919191";
-  tempMin = parseInt(document.getElementById("tempMin").value) || 10;
-  tempMax = parseInt(document.getElementById("tempMax").value) || 25;
-  tempColorMin = document.getElementById("tempColorMin").value || "#0000ff";
-  tempColorMax = document.getElementById("tempColorMax").value || "#ff0000";
+  const settings = fetchSettingsFromDOM();
+  updateServer(settings);
 }
 
-function calculateAndSendColor() {
-  const currentPm = parseInt(document.getElementById("currentPm").value);
-  const currentTemp = parseInt(document.getElementById("currentTemp").value);
+// 이부분에서 드래그인풋 바뀌게 ㄱㄱ
+function updateCurrentPm() {
+  currentPm = this.value;
+  updateDisplay();
+  updateServer(fetchSettingsFromDOM());
+}
 
-  const pmColor = interpolateColor(
-    pmMin,
-    pmMax,
-    pmColorMin,
-    pmColorMax,
-    currentPm
-  );
-  const tempColor = interpolateColor(
-    tempMin,
-    tempMax,
-    tempColorMin,
-    tempColorMax,
-    currentTemp
-  );
+function updateCurrentTemp() {
+  currentTemp = this.value;
+  updateDisplay();
+  updateServer(fetchSettingsFromDOM());
+}
 
-  console.log(`PM Color: ${pmColor}, Temp Color: ${tempColor}`);
+function updateDisplay() {
+  document.getElementById("currentPmValue").innerText = `${currentPm} µg/m³`;
+  document.getElementById("currentTempValue").innerText = `${currentTemp} °C`;
+}
 
-  // 계산된 색상을 서버에 전송
+function updateServer(settings) {
+  settings.pm = currentPm;
+  settings.temp = currentTemp;
+
   fetch(
-    `/setColor?firstColor=${pmColor.substring(
-      1
-    )}&secondColor=${tempColor.substring(1)}`
+    `/updateSettingsAndCalculateColor?deviceId=${encodeURIComponent(deviceId)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, ...settings }),
+    }
   )
-    .then((response) => response.text())
-    .then((data) => console.log(`Color sent: ${data}`))
-    .catch((error) => console.error("Error:", error));
+    .then((response) => response.json())
+    .then((data) => console.log("Settings and current state updated:", data))
+    .catch((error) =>
+      console.error("Error updating settings and current state:", error)
+    );
 }
 
-function interpolateColor(minValue, maxValue, colorStart, colorEnd, value) {
-  let ratio = (value - minValue) / (maxValue - minValue);
-  ratio = Math.max(0, Math.min(1, ratio));
-
-  const startRgb = hexToRgb(colorStart);
-  const endRgb = hexToRgb(colorEnd);
-
-  const r = Math.round(startRgb.r + (endRgb.r - startRgb.r) * ratio);
-  const g = Math.round(startRgb.g + (endRgb.g - startRgb.g) * ratio);
-  const b = Math.round(startRgb.b + (endRgb.b - startRgb.b) * ratio);
-
-  return rgbToHex(r, g, b);
-}
-
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return { r, g, b };
-}
-
-function rgbToHex(r, g, b) {
-  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+function fetchSettingsFromDOM() {
+  return {
+    pmMin: document.getElementById("pmMin").value,
+    pmMax: document.getElementById("pmMax").value,
+    pmColorMin: document.getElementById("pmColorMin").value,
+    pmColorMax: document.getElementById("pmColorMax").value,
+    tempMin: document.getElementById("tempMin").value,
+    tempMax: document.getElementById("tempMax").value,
+    tempColorMin: document.getElementById("tempColorMin").value,
+    tempColorMax: document.getElementById("tempColorMax").value,
+  };
 }
