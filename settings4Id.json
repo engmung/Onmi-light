@@ -1,0 +1,12 @@
+{
+  "1": {
+    "pmMin": "21",
+    "pmMax": "140",
+    "pmColorMin": "#d77575",
+    "pmColorMax": "#000000",
+    "tempMin": "8",
+    "tempMax": "38",
+    "tempColorMin": "#0084ff",
+    "tempColorMax": "#000000"
+  }
+}
