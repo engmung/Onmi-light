@@ -42,17 +42,24 @@ wss.on("connection", (ws) => {
     let message = data.toString();
     if (message.startsWith("ID:")) {
       clientId = message.slice(3);
-      if (!clients.has(clientId)) {
+      if (clients.has(clientId)) {
+        // 기존 연결 정보가 있는 경우, 소켓만 업데이트
+        console.log(`Client ${clientId} reconnected.`);
+        clients.get(clientId).socket = ws;
+      } else {
+        // 새 클라이언트 연결 처리
         clients.set(clientId, { socket: ws, settings: {} });
         console.log(`New client ${clientId} connected.`);
       }
-      console.log(`Client ${clientId} settings updated.`);
     }
   });
 
   ws.on("close", () => {
-    clients.delete(clientId);
-    console.log(`Client ${clientId} disconnected.`);
+    // 연결이 끊긴 클라이언트 처리
+    if (clientId && clients.has(clientId)) {
+      console.log(`Client ${clientId} disconnected.`);
+      clients.delete(clientId);
+    }
   });
 });
 
