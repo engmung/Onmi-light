@@ -1,3 +1,6 @@
+/**
+ * 필요한 라이브러리 임포트
+ */
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
@@ -13,56 +16,27 @@ const clients = new Map();
 
 // 설정 파일 경로 설정
 const SETTINGS_FILE = path.join(__dirname, "settings4Id.json");
-
-// 초기 테스트 더미 설정
-// clients.set("test", {
-//   socket: {
-//     send: (data) => console.log(`Sending data to test client: ${data}`),
-//     readyState: WebSocket.OPEN,
-//   },
-//   settings: {
-//     pmMin: 0,
-//     pmMax: 150,
-//     pmColorMin: "#00FF00",
-//     pmColorMax: "#FF0000",
-//     tempMin: -10,
-//     tempMax: 40,
-//     tempColorMin: "#0000FF",
-//     tempColorMax: "#FFFF00",
-//     location: "Seoul",
-//   },
-// });
-
 app.use(express.static("public"));
 app.use(express.json());
 
-wss.on("connection", (ws) => {
-  let clientId;
-  ws.on("message", (data) => {
-    let message = data.toString();
-    if (message.startsWith("ID:")) {
-      clientId = message.slice(3);
-      if (clients.has(clientId)) {
-        // 기존 연결 정보가 있는 경우, 소켓만 업데이트
-        console.log(`Client ${clientId} reconnected.`);
-        clients.get(clientId).socket = ws;
-      } else {
-        // 새 클라이언트 연결 처리
-        clients.set(clientId, { socket: ws, settings: {} });
-        console.log(`New client ${clientId} connected.`);
-      }
-    }
-  });
+/**
+ * 앤드포인트들
+ */
 
-  ws.on("close", () => {
-    // 연결이 끊긴 클라이언트 처리
-    if (clientId && clients.has(clientId)) {
-      console.log(`Client ${clientId} disconnected.`);
-      clients.delete(clientId);
-    }
-  });
+// ID확인
+app.get("/validateDeviceId", (req, res) => {
+  const { deviceId } = req.query;
+  if (clients.has(deviceId)) {
+    res.json({ isValid: true });
+  } else {
+    res.status(404).json({
+      isValid: false,
+      message: "Device ID not connected or does not exist.",
+    });
+  }
 });
 
+// 위치받고 색상계산
 app.post("/setLocation", (req, res) => {
   const { deviceId, location, pm, temp } = req.body;
   const client = clients.get(deviceId);
@@ -104,6 +78,7 @@ app.post("/setLocation", (req, res) => {
   }
 });
 
+// 설정값 업데이트 및 색상계산
 app.post("/updateSettingsAndCalculateColor", (req, res) => {
   const { deviceId, ...settings } = req.body;
   const client = clients.get(deviceId);
@@ -135,18 +110,7 @@ app.post("/updateSettingsAndCalculateColor", (req, res) => {
   }
 });
 
-app.get("/validateDeviceId", (req, res) => {
-  const { deviceId } = req.query;
-  if (clients.has(deviceId)) {
-    res.json({ isValid: true });
-  } else {
-    res.status(404).json({
-      isValid: false,
-      message: "Device ID not connected or does not exist.",
-    });
-  }
-});
-
+// 날씨정보 가져오기
 app.get("/getDustAndWeatherInfo", async (req, res) => {
   const { location } = req.query;
   const info = await fetchDustAndWeatherInfo(location);
@@ -190,6 +154,82 @@ app.get("/getSettings", (req, res) => {
   }
 });
 
+/**
+ * 세팅값 관련 함수
+ */
+
+// 세팅값 받아오기
+function loadSettings() {
+  try {
+    const rawData = fs.readFileSync(SETTINGS_FILE, "utf8");
+    const loadedSettings = JSON.parse(rawData);
+    for (const [clientId, settings] of Object.entries(loadedSettings)) {
+      if (clients.has(clientId)) {
+        clients.get(clientId).settings = settings;
+      } else {
+        clients.set(clientId, { settings: settings });
+      }
+    }
+    console.log("Settings loaded successfully from file.");
+  } catch (error) {
+    console.error("Failed to load settings from file:", error);
+  }
+}
+
+// 세팅값 데이터베이스에 저장하기, 폴더 수정
+function saveSettings() {
+  const settingsData = {};
+  clients.forEach((client, clientId) => {
+    const { pm, temp, ...settingsWithoutDynamicValues } = client.settings;
+    settingsData[clientId] = settingsWithoutDynamicValues;
+  });
+
+  fs.writeFile(SETTINGS_FILE, JSON.stringify(settingsData, null, 2), (err) => {
+    if (err) {
+      console.error("Failed to save settings to file:", err);
+      return;
+    }
+    console.log("Settings saved successfully to file.");
+  });
+}
+
+/**
+ * 날씨정보 처리함수
+ */
+
+// 날씨 정보와 미세먼지 정보를 파싱하는 함수
+async function fetchDustAndWeatherInfo(location) {
+  try {
+    const dustUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
+      location + " 미세먼지"
+    )}`;
+    const weatherUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
+      location + " 온도"
+    )}`;
+    const [dustResponse, weatherResponse] = await axios.all([
+      axios.get(dustUrl),
+      axios.get(weatherUrl),
+    ]);
+    const dustData = cheerio.load(dustResponse.data);
+    const weatherData = cheerio.load(weatherResponse.data);
+
+    let dustLevel = dustData("#main_pack .num._value").first().text().trim();
+    let temperature = weatherData("#main_pack .temperature_text strong")
+      .text()
+      .trim()
+      .match(/-?\d+/)[0];
+
+    return { dustLevel, temperature };
+  } catch (error) {
+    console.error("Error fetching environment data:", error);
+    return { dustLevel: "유효한 위치를 입력하세욤", temperature: "이하동문" };
+  }
+}
+
+/**
+ * 색상처리 함수
+ */
+
 function interpolateColor(min, max, colorStart, colorEnd, value) {
   let ratio = (value - min) / (max - min);
   ratio = Math.max(0, Math.min(1, ratio));
@@ -216,100 +256,36 @@ function rgbToHex(r, g, b) {
   return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
-function loadSettings() {
-  try {
-    const rawData = fs.readFileSync(SETTINGS_FILE, "utf8");
-    const loadedSettings = JSON.parse(rawData);
-    for (const [clientId, settings] of Object.entries(loadedSettings)) {
+/**
+ * 웹소캣연결 및, 주기적인 정보송신
+ */
+
+// 웹소캣연결 제어
+wss.on("connection", (ws) => {
+  let clientId;
+  ws.on("message", (data) => {
+    let message = data.toString();
+    if (message.startsWith("ID:")) {
+      clientId = message.slice(3);
       if (clients.has(clientId)) {
-        clients.get(clientId).settings = settings;
+        // 기존 연결 정보가 있는 경우, 소켓만 업데이트
+        console.log(`Client ${clientId} reconnected.`);
+        clients.get(clientId).socket = ws;
       } else {
-        clients.set(clientId, { settings: settings });
+        // 새 클라이언트 연결 처리
+        clients.set(clientId, { socket: ws, settings: {} });
+        console.log(`New client ${clientId} connected.`);
       }
     }
-    console.log("Settings loaded successfully from file.");
-  } catch (error) {
-    console.error("Failed to load settings from file:", error);
-  }
-}
-
-function saveSettings() {
-  const settingsData = {};
-  clients.forEach((client, clientId) => {
-    const { pm, temp, ...settingsWithoutDynamicValues } = client.settings;
-    settingsData[clientId] = settingsWithoutDynamicValues;
   });
 
-  fs.writeFile(SETTINGS_FILE, JSON.stringify(settingsData, null, 2), (err) => {
-    if (err) {
-      console.error("Failed to save settings to file:", err);
-      return;
+  ws.on("close", () => {
+    // 연결이 끊긴 클라이언트 처리
+    if (clientId && clients.has(clientId)) {
+      console.log(`Client ${clientId} disconnected.`);
+      clients.delete(clientId);
     }
-    console.log("Settings saved successfully to file.");
   });
-}
-
-// 날씨 정보와 미세먼지 정보를 파싱하는 함수
-async function fetchDustAndWeatherInfo(location) {
-  const dustUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
-    location + " 미세먼지"
-  )}`;
-  const weatherUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
-    location + " 온도"
-  )}`;
-
-  try {
-    const [dustResponse, weatherResponse] = await Promise.all([
-      axios.get(dustUrl),
-      axios.get(weatherUrl),
-    ]);
-
-    const dustData = cheerio.load(dustResponse.data);
-    const weatherData = cheerio.load(weatherResponse.data);
-
-    const dustLevel = dustData(".air_info .num").text().trim(); // CSS 선택자를 실제 요소에 맞게 조정
-    const temperature = weatherData(".todaytemp").text().trim(); // CSS 선택자를 실제 요소에 맞게 조정
-
-    if (!dustLevel || !temperature)
-      throw new Error("Unable to fetch valid data");
-
-    return { dustLevel, temperature };
-  } catch (error) {
-    console.error("Error fetching environment data:", error);
-    throw error; // 오류를 throw하여 호출자가 처리할 수 있도록 함
-  }
-}
-
-async function fetchDustAndWeatherInfo(location) {
-  try {
-    const dustUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
-      location + " 미세먼지"
-    )}`;
-    const weatherUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
-      location + " 온도"
-    )}`;
-    const [dustResponse, weatherResponse] = await axios.all([
-      axios.get(dustUrl),
-      axios.get(weatherUrl),
-    ]);
-    const dustData = cheerio.load(dustResponse.data);
-    const weatherData = cheerio.load(weatherResponse.data);
-
-    let dustLevel = dustData("#main_pack .num._value").first().text().trim();
-    let temperature = weatherData("#main_pack .temperature_text strong")
-      .text()
-      .trim()
-      .match(/-?\d+/)[0];
-
-    return { dustLevel, temperature };
-  } catch (error) {
-    console.error("Error fetching environment data:", error);
-    return { dustLevel: "N/A", temperature: "N/A" };
-  }
-}
-
-server.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
 });
 
 // 주기적인 업데이트를 위한 코드
@@ -356,4 +332,9 @@ function updateAllDevices() {
 }
 
 // 10초마다 모든 조명 업데이트 실행
-setInterval(updateAllDevices, 1000 * 60);
+setInterval(updateAllDevices, 1000 * 60 * 10);
+
+// 3000포트에서 서버실행
+server.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
