@@ -19,6 +19,24 @@ const SETTINGS_FILE = path.join(__dirname, "settings4Id.json");
 app.use(express.static("public"));
 app.use(express.json());
 
+// 초기 테스트 더미 설정
+clients.set("test", {
+  socket: {
+    send: (data) => console.log(`Sending data to test client: ${data}`),
+    readyState: WebSocket.OPEN,
+  },
+  settings: {
+    pmMin: 0,
+    pmMax: 150,
+    pmColorMin: "#00FF00",
+    pmColorMax: "#FF0000",
+    tempMin: -10,
+    tempMax: 40,
+    tempColorMin: "#0000FF",
+    tempColorMax: "#FFFF00",
+    location: "Seoul",
+  },
+});
 /**
  * 앤드포인트들
  */
@@ -78,13 +96,34 @@ app.post("/setLocation", (req, res) => {
   }
 });
 
+// 온도 배열을 색상 배열로 변환하는 함수
+function convertTemperaturesToColors(
+  tempArray,
+  tempMin,
+  tempMax,
+  tempColorMin,
+  tempColorMax
+) {
+  return tempArray.map((temp) =>
+    interpolateColor(
+      tempMin,
+      tempMax,
+      tempColorMin,
+      tempColorMax,
+      parseInt(temp)
+    )
+  );
+}
+
 // 설정값 업데이트 및 색상계산
-app.post("/updateSettingsAndCalculateColor", (req, res) => {
+app.post("/updateSettingsAndCalculateColor", async (req, res) => {
   const { deviceId, ...settings } = req.body;
   const client = clients.get(deviceId);
   if (client && client.socket.readyState === WebSocket.OPEN) {
     client.settings = { ...client.settings, ...settings };
     saveSettings();
+
+    // 현재 PM과 온도 색상 계산
     const pmColor = interpolateColor(
       client.settings.pmMin,
       client.settings.pmMax,
@@ -99,11 +138,35 @@ app.post("/updateSettingsAndCalculateColor", (req, res) => {
       client.settings.tempColorMax,
       settings.temp
     );
-    client.socket.send(JSON.stringify({ pmColor, tempColor }));
+
+    // 미세먼지 농도가 최대 범위를 초과하는 경우 빨간색, 아니면 하얀색
+    const pmAlertColor =
+      settings.pm > client.settings.pmMax ? "#FF0000" : "#FFFFFF";
+
+    // 위치 기반으로 12시간 온도 데이터를 가져오기
+    const { hourlyTemperatures } = await fetchDustAndWeatherInfo(
+      client.settings.location
+    );
+
+    // 12시간 동안의 온도 색상 계산
+    const hourlyTempColors = convertTemperaturesToColors(
+      hourlyTemperatures,
+      client.settings.tempMin,
+      client.settings.tempMax,
+      client.settings.tempColorMin,
+      client.settings.tempColorMax
+    );
+
+    // 클라이언트로 데이터 전송
+    client.socket.send(
+      JSON.stringify({ pmColor, tempColor, pmAlertColor, hourlyTempColors })
+    );
     res.json({
       message: "Settings updated and colors calculated.",
       pmColor,
       tempColor,
+      pmAlertColor,
+      hourlyTempColors,
     });
   } else {
     res.status(404).send("Device not connected or not found");
@@ -213,16 +276,42 @@ async function fetchDustAndWeatherInfo(location) {
     const dustData = cheerio.load(dustResponse.data);
     const weatherData = cheerio.load(weatherResponse.data);
 
+    // 미세먼지 정보 파싱
     let dustLevel = dustData("#main_pack .num._value").first().text().trim();
+
+    // 현재 온도 파싱
     let temperature = weatherData("#main_pack .temperature_text strong")
       .text()
       .trim()
       .match(/-?\d+/)[0];
 
-    return { dustLevel, temperature };
+    // 12시간 동안의 온도 파싱
+    let hourlyTemperatures = [];
+    weatherData("#main_pack .graph_inner._hourly_weather ul li").each(
+      (index, element) => {
+        if (index < 12) {
+          // 12개의 데이터를 가져오기 위해
+          let temp = weatherData(element)
+            .find("dd.degree_point > div > div > span")
+            .text()
+            .trim()
+            .replace("°", "");
+          hourlyTemperatures.push(temp);
+        }
+      }
+    );
+
+    // 결과를 로그로 출력
+    console.log(`12-hour Forecast: ${hourlyTemperatures.join(", ")}`);
+
+    return { dustLevel, temperature, hourlyTemperatures };
   } catch (error) {
     console.error("Error fetching environment data:", error);
-    return { dustLevel: "유효한 위치를 입력하세욤", temperature: "이하동문" };
+    return {
+      dustLevel: "유효한 위치를 입력하세욤",
+      temperature: "이하동문",
+      hourlyTemperatures: [],
+    };
   }
 }
 
