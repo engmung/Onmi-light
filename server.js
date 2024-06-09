@@ -420,8 +420,8 @@ function updateAllDevices() {
   });
 }
 
-// 10초마다 모든 조명 업데이트 실행
-setInterval(updateAllDevices, 1000 * 60 * 10);
+// 주기적으로 업데이트
+// setInterval(updateAllDevices, 1000 * 60 * 10);
 
 // 3000포트에서 서버실행
 server.listen(3000, () => {
