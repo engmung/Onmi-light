@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Onmi 프로젝트</title>
+    <title>Light on-mi</title>
+    <script src="onmi3.js"></script>
     <link rel="stylesheet" href="style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,41 +13,102 @@
     />
   </head>
   <body>
-    <h1>Onmi 조명</h1>
-    <input
-      type="text"
-      id="deviceIdInput"
-      placeholder="ID 입력하셈, 테스트는 test"
-    />
-    <button id="loginButton">로그인</button>
+    <h1>Light on-mi</h1>
+    <div id="grid">
+      <div id="LoginLocation">
+        <!---- 로그인 ------------------------>
+        <h3>LOGIN</h3>
+        <div class="text-container">
+          <input type="text" id="deviceIdInput" placeholder="아이디" />
+        </div>
+        <div>
+          <button id="loginButton">로그인</button>
+        </div>
+        <!---- 위치 --------------------------->
+        <h3>위치</h3>
+        <div class="text-container">
+          <input
+            type="text"
+            id="location"
+            placeholder="동/읍/면을 입력하세요"
+          />
+        </div>
+        <div id="buttonGrid">
+          <button id="updateLocation">업데이트</button>
+          <button id="submitSettingsButton">저장</button>
+        </div>
+      </div>
 
-    <h2>미세먼지 설정</h2>
-    최소값: <input type="number" id="pmMin" /> 최대값:
-    <input type="number" id="pmMax" /> 최소 색상:
-    <input type="color" id="pmColorMin" /> 최대 색상:
-    <input type="color" id="pmColorMax" />
-
-    <h2>온도 설정</h2>
-    최소값: <input type="number" id="tempMin" /> 최대값:
-    <input type="number" id="tempMax" /> 최소 색상:
-    <input type="color" id="tempColorMin" /> 최대 색상:
-    <input type="color" id="tempColorMax" />
-
-    <h2>현재 상태</h2>
-    미세먼지 농도(㎍/㎥):
-    <input type="range" id="currentPm" min="0" max="150" value="90" />
-    <span id="currentPmValue">90</span> ㎍/㎥<br />
-    현재 온도(°C):
-    <input type="range" id="currentTemp" min="-10" max="45" value="25" />
-    <span id="currentTempValue">25</span> °C<br />
-
-    <h2>위치 설정</h2>
-    <label for="location">위치 입력:</label>
-    <input type="text" id="location" placeholder="동 입력 (예: 상수동)" />
-    <button id="updateLocation">위치 업데이트</button>
-
-    <button id="submitSettingsButton">설정 저장</button>
-
+      <div id="others">
+        <div class="block">
+          <!-- <h3 id="currentWeather">현재 날씨</h3> -->
+          <div class="GridInBlock">
+            <div class="index">현재 날씨</div>
+            <!---- 온도 ------------------------>
+            <div class="Contents">
+              온도 :<br />
+              <span id="currentTempValue">25</span>
+              <span class="tempUnit">°C</span><br />
+              <input
+                type="range"
+                id="currentTemp"
+                min="-10"
+                max="45"
+                value="25"
+              /><br />
+            </div>
+            <!---- 미먼 ------------------------>
+            <div class="Contents">
+              미세먼지 :
+              <div id="pm">
+                <div id="currentPmState">&#128567;</div>
+                <span id="currentPmValue">90</span>
+                <span class="pmUnit">㎍/㎥</span>
+                <input
+                  type="range"
+                  id="currentPm"
+                  min="0"
+                  max="150"
+                  value="90"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="block">
+          <!-- <h3 id="currentWeather">설정</h3> -->
+          <div class="GridInBlock">
+            <div class="index">설정</div>
+            <!---- 온도 설정 -------------------->
+            <div class="Contents" id="Settings">
+              색상
+              <input type="color" id="tempColorMin" value="#3c3cff" />
+              <input type="color" id="tempColorMax" value="#ff4949" /><br />
+              범위
+              <input
+                type="number"
+                id="tempMin"
+                value="-10"
+                placeholder="최소"
+              />
+              <span>~</span>
+              <input
+                type="number"
+                id="tempMax"
+                value="45"
+                placeholder="최대"
+              />°C
+              <div id="error-message">유효한 값을 입력해주세요.</div>
+            </div>
+            <!---- 미먼 설정 -------------------->
+            <div class="Contents">
+              <div id="mask">마스크 착용 기준 <br /></div>
+              <input type="number" id="pmMax" value="80" /> ㎍/㎥ 이상
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script src="index.js" defer></script>
   </body>
 </html>

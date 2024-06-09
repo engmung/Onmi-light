@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-  //사용자가 이전에 설정한 값 가져오고 디스플레이 업데이트
+  // 사용자가 이전에 설정한 값 가져오고 디스플레이 업데이트
   loadSettings();
   updateDisplay();
 });
@@ -45,10 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // 설정 값을 로드하고, 로컬 스토리지에 저장된 값을 UI에 반영
 function loadSettings() {
   const settingsInputs = [
-    "pmMin",
     "pmMax",
-    "pmColorMin",
-    "pmColorMax",
     "tempMin",
     "tempMax",
     "tempColorMin",
@@ -60,13 +57,16 @@ function loadSettings() {
   ];
 
   settingsInputs.forEach((id) => {
-    const storedValue = localStorage.getItem(id);
-    if (storedValue) {
-      document.getElementById(id).value = storedValue;
+    const element = document.getElementById(id);
+    if (element) {
+      const storedValue = localStorage.getItem(id);
+      if (storedValue) {
+        element.value = storedValue;
+      }
     }
   });
 
-  // 슬라이더 값 디스플레이 업데이트(사실 의미 없을지도...)
+  // 슬라이더 값 디스플레이 업데이트
   updateDisplay();
 }
 
@@ -251,10 +251,7 @@ function updateDisplay() {
 // 설정값들을 변수에 넣고, 이를 로컬스토리지에 저장
 function fetchSettingsFromDOM() {
   const settings = {
-    pmMin: document.getElementById("pmMin").value,
     pmMax: document.getElementById("pmMax").value,
-    pmColorMin: document.getElementById("pmColorMin").value,
-    pmColorMax: document.getElementById("pmColorMax").value,
     tempMin: document.getElementById("tempMin").value,
     tempMax: document.getElementById("tempMax").value,
     tempColorMin: document.getElementById("tempColorMin").value,
