@@ -26,10 +26,7 @@ clients.set("test", {
     readyState: WebSocket.OPEN,
   },
   settings: {
-    pmMin: 0,
     pmMax: 150,
-    pmColorMin: "#00FF00",
-    pmColorMax: "#FF0000",
     tempMin: -10,
     tempMax: 40,
     tempColorMin: "#0000FF",
@@ -61,13 +58,7 @@ app.post("/setLocation", (req, res) => {
   if (client) {
     if (client.socket.readyState === WebSocket.OPEN) {
       // 현재 설정에 따라 색상 계산
-      const pmColor = interpolateColor(
-        client.settings.pmMin,
-        client.settings.pmMax,
-        client.settings.pmColorMin,
-        client.settings.pmColorMax,
-        parseInt(pm)
-      );
+
       const tempColor = interpolateColor(
         client.settings.tempMin,
         client.settings.tempMax,
@@ -81,10 +72,9 @@ app.post("/setLocation", (req, res) => {
       saveSettings(); // 변경된 설정을 저장
 
       // 업데이트된 위치와 색상 정보를 클라이언트에 보내기
-      client.socket.send(JSON.stringify({ pmColor, tempColor }));
+      client.socket.send(JSON.stringify({ tempColor }));
       res.json({
         message: "Location and environment data updated successfully.",
-        pmColor,
         tempColor,
       });
     } else {
@@ -124,13 +114,7 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
     saveSettings();
 
     // 현재 PM과 온도 색상 계산
-    const pmColor = interpolateColor(
-      client.settings.pmMin,
-      client.settings.pmMax,
-      client.settings.pmColorMin,
-      client.settings.pmColorMax,
-      settings.pm
-    );
+
     const tempColor = interpolateColor(
       client.settings.tempMin,
       client.settings.tempMax,
@@ -159,11 +143,10 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
 
     // 클라이언트로 데이터 전송
     client.socket.send(
-      JSON.stringify({ pmColor, tempColor, pmAlertColor, hourlyTempColors })
+      JSON.stringify({ tempColor, pmAlertColor, hourlyTempColors })
     );
     res.json({
       message: "Settings updated and colors calculated.",
-      pmColor,
       tempColor,
       pmAlertColor,
       hourlyTempColors,
@@ -391,13 +374,7 @@ function updateAllDevices() {
         );
 
         // 미세먼지 및 온도에 따른 색상 계산
-        const pmColor = interpolateColor(
-          client.settings.pmMin,
-          client.settings.pmMax,
-          client.settings.pmColorMin,
-          client.settings.pmColorMax,
-          parseInt(dustLevel)
-        );
+
         const tempColor = interpolateColor(
           client.settings.tempMin,
           client.settings.tempMax,
@@ -407,7 +384,7 @@ function updateAllDevices() {
         );
 
         // 클라이언트에 색상 데이터 전송
-        client.socket.send(JSON.stringify({ pmColor, tempColor }));
+        client.socket.send(JSON.stringify({ tempColor }));
 
         // 로그에 환경 데이터 기록
         console.log(
