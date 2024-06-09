@@ -242,8 +242,8 @@ function displayEnvironmentalData(data) {
 
 // UI 디스플레이 업데이트
 function updateDisplay() {
-  document.getElementById("currentPmValue").innerText = `${currentPm} µg/m³`;
-  document.getElementById("currentTempValue").innerText = `${currentTemp} °C`;
+  document.getElementById("currentPmValue").innerText = `${currentPm}`;
+  document.getElementById("currentTempValue").innerText = `${currentTemp}`;
   document.getElementById("currentPm").value = currentPm;
   document.getElementById("currentTemp").value = currentTemp;
 }

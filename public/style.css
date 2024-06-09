@@ -11,7 +11,7 @@ h1 {
   font-weight: lighter;
   margin: 50px 0px 35px 0px;
 }
-/*본문 구조---------------------------------------*/
+/*蹂몃Ц 援ъ“---------------------------------------*/
 #grid {
   display: grid;
   grid-template-columns: 1fr 4fr;
@@ -81,7 +81,7 @@ input[type="text"] {
   font-weight: bolder;
   text-align: center;
 }
-/* 현재날씨 -------------------------------------- */
+/* �꾩옱�좎뵪 -------------------------------------- */
 #currentTempValue {
   font-size: 80px;
   padding: 10px 10px 10px 35px;
@@ -101,7 +101,7 @@ input[type="text"] {
   padding-left: 18px;
   font-size: 15px;
 }
-/* 온도색상 -------------------------------------- */
+/* �⑤룄�됱긽 -------------------------------------- */
 input[type="range"] {
   appearance: none;
   margin: 23px 0px 12px 10px;
@@ -128,8 +128,8 @@ input[type="range"]::-webkit-slider-thumb {
 #currentTemp::-webkit-slider-runnable-track {
   background: linear-gradient(to right, rgb(60, 60, 255), rgb(255, 73, 73));
 }
-/* 온도 설정 --------------------------------------*/
-/* 색상 ----*/
+/* �⑤룄 �ㅼ젙 --------------------------------------*/
+/* �됱긽 ----*/
 input[type="color"] {
   width: 31px;
   height: 31px;
@@ -150,7 +150,7 @@ input[type="color"]::-webkit-color-swatch {
   border: none;
   cursor: pointer;
 }
-/* 숫자 ----*/
+/* �レ옄 ----*/
 input[type="number"] {
   width: 36px;
   height: 27px;
@@ -164,7 +164,7 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   appearance: none;
 }
-/* 오류 메시지 */
+/* �ㅻ쪟 硫붿떆吏� */
 #error-message {
   color: red;
   font-size: 13px;
@@ -172,7 +172,7 @@ input[type="number"]::-webkit-inner-spin-button {
   padding: 3px 0px 0px 40px;
   height: 16px;
 }
-/* 버튼 ----*/
+/* 踰꾪듉 ----*/
 #settingButton {
   padding: 15px 0px 0px 112px;
 }
@@ -180,11 +180,11 @@ input[type="number"]::-webkit-inner-spin-button {
   cursor: pointer;
   height: 25px;
 }
-/* 미먼 설정 --------------------------------------*/
+/* 誘몃㉫ �ㅼ젙 --------------------------------------*/
 #mask {
   padding-top: 4px;
 }
-/* 모바일화면 --------------------------------*/
+/* 紐⑤컮�쇳솕硫� --------------------------------*/
 @media (max-width: 768px) {
   #grid {
     display: block;
