@@ -95,8 +95,13 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
     saveSettings();
 
     try {
-      const { hourlyDustLevels, hourlyTemperatures, currentTime } =
-        await fetchDustAndWeatherInfo(client.settings.location);
+      const {
+        currentDustLevel,
+        hourlyDustLevels,
+        temperature,
+        hourlyTemperatures,
+        currentTime,
+      } = await fetchDustAndWeatherInfo(client.settings.location);
 
       const hourlyTempColors = convertToColors(
         hourlyTemperatures,
@@ -114,6 +119,7 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
         client.settings.pmColorMax || "#FF0000"
       ).map(removeHash);
 
+      // 웹소켓으로 보낼 데이터 (색상 데이터만)
       const dataToSend = {
         hourlyTempColors,
         hourlyPmColors,
@@ -121,11 +127,21 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
       };
 
       client.socket.send(JSON.stringify(dataToSend));
-      console.log("Sending data to client:", dataToSend);
+
+      // 웹 로그 및 응답으로 보낼 데이터 (실제 수치 포함)
+      const logData = {
+        currentDustLevel,
+        hourlyDustLevels,
+        temperature,
+        hourlyTemperatures,
+        currentTime,
+      };
+
+      console.log("Data for logging:", logData);
 
       res.json({
         message: "Settings updated and colors calculated.",
-        ...dataToSend,
+        ...logData,
       });
     } catch (error) {
       console.error("Error calculating colors:", error);
