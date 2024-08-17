@@ -1,45 +1,42 @@
 document.addEventListener("DOMContentLoaded", function () {
   const tempColorMin = document.getElementById("tempColorMin");
   const tempColorMax = document.getElementById("tempColorMax");
+  const pmColorMin = document.getElementById("pmColorMin");
+  const pmColorMax = document.getElementById("pmColorMax");
+  const pmMinInput = document.getElementById("pmMin");
   const pmMaxInput = document.getElementById("pmMax");
-  const currentPmState = document.getElementById("currentPmState");
-  const currentPmValue = document.getElementById("currentPm");
+  const currentPmValue = document.getElementById("currentPmValue");
 
   // 슬라이더 색상 업데이트
-  function updateSliderTrackColor(color1, color2) {
+  function updateSliderTrackColor(sliderId, color1, color2) {
     const style = document.createElement("style");
     document.head.appendChild(style);
     style.sheet.insertRule(
-      `#currentTemp::-webkit-slider-runnable-track {
-                background: linear-gradient(to right, ${color1}, ${color2});
-            }`,
+      `#${sliderId}::-webkit-slider-runnable-track {
+        background: linear-gradient(to right, ${color1}, ${color2});
+      }`,
       0
     );
   }
 
-  // PM 상태 업데이트 함수
-  function updatePmState() {
-    const pmMax = parseInt(pmMaxInput.value);
-    const pmValue = parseInt(currentPmValue.value);
-
-    if (!isNaN(pmMax) && pmValue >= pmMax) {
-      currentPmState.innerHTML = "&#128567;"; // 😷
-    } else {
-      currentPmState.innerHTML = "&#128522;"; // 😊
-    }
+  function updateTempSlider() {
+    updateSliderTrackColor(
+      "currentTemp",
+      tempColorMin.value,
+      tempColorMax.value
+    );
   }
 
-  tempColorMin.addEventListener("input", function () {
-    updateSliderTrackColor(tempColorMin.value, tempColorMax.value);
-  });
+  function updatePmSlider() {
+    updateSliderTrackColor("currentPm", pmColorMin.value, pmColorMax.value);
+  }
 
-  tempColorMax.addEventListener("input", function () {
-    updateSliderTrackColor(tempColorMin.value, tempColorMax.value);
-  });
+  tempColorMin.addEventListener("input", updateTempSlider);
+  tempColorMax.addEventListener("input", updateTempSlider);
+  pmColorMin.addEventListener("input", updatePmSlider);
+  pmColorMax.addEventListener("input", updatePmSlider);
 
-  // PM 값이 변경될 때 PM 상태 업데이트
-  currentPmValue.addEventListener("input", updatePmState);
-
-  // PM Max 값이 변경될 때 PM 상태 업데이트
-  pmMaxInput.addEventListener("input", updatePmState);
+  // 초기 슬라이더 색상 설정
+  updateTempSlider();
+  updatePmSlider();
 });

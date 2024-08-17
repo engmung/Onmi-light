@@ -61,7 +61,6 @@
             <div class="Contents">
               미세먼지 :
               <div id="pm">
-                <div id="currentPmState">&#128567;</div>
                 <span id="currentPmValue">90</span>
                 <span class="pmUnit">㎍/㎥</span>
                 <input
@@ -76,11 +75,11 @@
           </div>
         </div>
         <div class="block">
-          <!-- <h3 id="currentWeather">설정</h3> -->
           <div class="GridInBlock">
             <div class="index">설정</div>
-            <!---- 온도 설정 -------------------->
+            <!-- 온도 설정 -->
             <div class="Contents" id="Settings">
+              <h4>온도</h4>
               색상
               <input type="color" id="tempColorMin" value="#3c3cff" />
               <input type="color" id="tempColorMax" value="#ff4949" /><br />
@@ -98,12 +97,24 @@
                 value="45"
                 placeholder="최대"
               />°C
-              <div id="error-message">유효한 값을 입력해주세요.</div>
+              <div id="temp-error-message" class="error-message"></div>
             </div>
-            <!---- 미먼 설정 -------------------->
-            <div class="Contents">
-              <div id="mask">마스크 착용 기준 <br /></div>
-              <input type="number" id="pmMax" value="80" /> ㎍/㎥ 이상
+            <!-- 미세먼지 설정 -->
+            <div class="Contents" id="PmSettings">
+              <h4>미세먼지</h4>
+              색상
+              <input type="color" id="pmColorMin" value="#00ff00" />
+              <input type="color" id="pmColorMax" value="#ff0000" /><br />
+              범위
+              <input type="number" id="pmMin" value="0" placeholder="최소" />
+              <span>~</span>
+              <input
+                type="number"
+                id="pmMax"
+                value="150"
+                placeholder="최대"
+              />㎍/㎥
+              <div id="pm-error-message" class="error-message"></div>
             </div>
           </div>
         </div>

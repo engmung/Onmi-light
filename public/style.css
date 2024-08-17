@@ -242,3 +242,25 @@ input[type="number"]::-webkit-inner-spin-button {
     padding-top: 38px;
   }
 }
+
+/* 미세먼지 슬라이더 스타일 */
+#currentPm::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, rgb(0, 255, 0), rgb(255, 0, 0));
+}
+
+/* 미세먼지 값 스타일 */
+#currentPmValue {
+  font-size: 80px;
+  padding: 10px 10px 10px 35px;
+}
+
+.pmUnit {
+  font-size: 20px;
+}
+
+/* 모바일 화면에서의 미세먼지 스타일 */
+@media (max-width: 768px) {
+  #currentPmValue {
+    padding-left: 0px;
+  }
+}

@@ -9,7 +9,7 @@ let deviceId = localStorage.getItem("deviceId") || "";
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("deviceIdInput").value = deviceId;
 
-  // 사용자 인터페이스 이벤트 핸들러, html의 버튼 클릭시, 각각의 함수가 실행되도록 하는 부분.
+  // 사용자 인터페이스 이벤트 핸들러
   document
     .getElementById("loginButton")
     .addEventListener("click", validateAndStoreDeviceId);
@@ -17,21 +17,16 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("submitSettingsButton")
     .addEventListener("click", submitSettings);
   document
-    .getElementById("currentPm")
-    .addEventListener("input", updateCurrentPm);
+    .getElementById("updateLocation")
+    .addEventListener("click", updateLocationAndFetchData);
+
+  // 온도와 미세먼지 입력 변경 이벤트 리스너 추가
   document
     .getElementById("currentTemp")
-    .addEventListener("input", updateCurrentTemp);
+    .addEventListener("input", updateTempDisplay);
   document
-    .getElementById("updateLocation")
-    .addEventListener("click", function () {
-      const location = document.getElementById("location").value;
-      if (location) {
-        updateLocationAndFetchData(deviceId, location);
-      } else {
-        console.log("Please enter a location.");
-      }
-    });
+    .getElementById("currentPm")
+    .addEventListener("input", updatePmDisplay);
 
   // 사용자가 이전에 설정한 값 가져오고 디스플레이 업데이트
   loadSettings();
@@ -42,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // 설정 로드 및 저장
 // ============================
 
-// 설정 값을 로드하고, 로컬 스토리지에 저장된 값을 UI에 반영
 function loadSettings() {
   const settingsInputs = [
     "pmMax",
@@ -66,11 +60,9 @@ function loadSettings() {
     }
   });
 
-  // 슬라이더 값 디스플레이 업데이트
   updateDisplay();
 }
 
-// 설정 값들을 서버에 업데이트
 function updateServer(settings) {
   settings.pm = currentPm;
   settings.temp = currentTemp;
@@ -84,7 +76,13 @@ function updateServer(settings) {
     }
   )
     .then((response) => response.json())
-    .then((data) => console.log("Settings and current state updated:", data))
+    .then((data) => {
+      console.log("Settings and current state updated:", data);
+      updateDisplay(data);
+      // 현재 온도와 미세먼지 수치를 콘솔에 출력
+      console.log("Current Temperature:", data.temperature);
+      console.log("Current Dust Level:", data.currentDustLevel);
+    })
     .catch((error) =>
       console.error("Error updating settings and current state:", error)
     );
@@ -94,64 +92,17 @@ function updateServer(settings) {
 // 사용자 입력 처리
 // ============================
 
-// PM 값 입력 핸들러
-function updateCurrentPm() {
-  currentPm = this.value;
-  updateDisplay();
-  updateServer(fetchSettingsFromDOM());
-}
-
-// 온도 값 입력 핸들러
-function updateCurrentTemp() {
-  currentTemp = this.value;
-  updateDisplay();
-  updateServer(fetchSettingsFromDOM());
-}
-
-// 위칫값 업데이트
-function updateLocation() {
+function updateLocationAndFetchData() {
   const location = document.getElementById("location").value;
   if (location) {
-    updateLocationOnServer(location);
+    const settings = fetchSettingsFromDOM();
+    settings.location = location;
+    updateServer(settings);
   } else {
     console.log("Please enter a location.");
   }
 }
 
-// ============================
-// 서버 통신 및 데이터 처리
-// ============================
-
-// 서버에 새 위치 정보를 전송하고 결과를 처리
-function updateLocationOnServer(location) {
-  const settings = fetchSettingsFromDOM();
-  settings.location = location;
-
-  fetch("/setLocation", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      deviceId,
-      location,
-      pm: currentPm,
-      temp: currentTemp,
-      ...settings,
-    }),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.message === "Location and settings updated successfully.") {
-        // 서버로부터 색상 정보를 받아 UI 업데이트
-        updateDisplay(data.pmColor, data.tempColor);
-        console.log("Successful update:", data);
-      } else {
-        alert(data.message);
-      }
-    })
-    .catch((error) => console.error("Error updating location:", error));
-}
-
-// ID 유효성 검사와 저장
 function validateAndStoreDeviceId() {
   deviceId = document.getElementById("deviceIdInput").value;
   if (deviceId) {
@@ -162,7 +113,6 @@ function validateAndStoreDeviceId() {
   }
 }
 
-// 서버에 ID가 유효한지 검사요청
 function validateDeviceId() {
   fetch(`/validateDeviceId?deviceId=${encodeURIComponent(deviceId)}`)
     .then((response) =>
@@ -181,37 +131,10 @@ function validateDeviceId() {
     });
 }
 
-// 설정값을 서버에 업로드
 function submitSettings() {
-  const settings = fetchSettingsFromDOM();
-  updateServer(settings);
+  updateLocationAndFetchData();
 }
 
-// 위치기반으로 날씨데이터를 서버에 요청, 계산에 필요한 현재 날씨상태도 전달
-function updateLocationAndFetchData(deviceId, location) {
-  fetch(`/setLocation`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      deviceId,
-      location,
-      pm: currentPm,
-      temp: currentTemp,
-    }),
-  })
-    .then((response) => response.text())
-    .then((data) => {
-      console.log("Location and data updated:", data);
-      fetchDustAndWeatherInfo(deviceId, location);
-    })
-    .catch((error) =>
-      console.error("Error updating location and data:", error)
-    );
-}
-
-// 날씨상태 가져오기
 function fetchDustAndWeatherInfo(deviceId, location) {
   fetch(
     `/getDustAndWeatherInfo?deviceId=${encodeURIComponent(
@@ -228,11 +151,10 @@ function fetchDustAndWeatherInfo(deviceId, location) {
     );
 }
 
-// 가져온 날씨정보를 저장
 function displayEnvironmentalData(data) {
-  currentPm = data.dustLevel;
+  currentPm = data.currentDustLevel;
   currentTemp = data.temperature;
-  updateDisplay();
+  updateDisplay(data);
   updateServer(fetchSettingsFromDOM());
 }
 
@@ -240,15 +162,43 @@ function displayEnvironmentalData(data) {
 // UI 업데이트 함수
 // ============================
 
-// UI 디스플레이 업데이트
-function updateDisplay() {
-  document.getElementById("currentPmValue").innerText = `${currentPm}`;
-  document.getElementById("currentTempValue").innerText = `${currentTemp}`;
-  document.getElementById("currentPm").value = currentPm;
-  document.getElementById("currentTemp").value = currentTemp;
+function updateDisplay(data) {
+  if (data) {
+    document.getElementById("currentPmValue").innerText =
+      data.currentDustLevel || currentPm;
+    document.getElementById("currentTempValue").innerText =
+      data.temperature || currentTemp;
+    document.getElementById("currentPm").value =
+      data.currentDustLevel || currentPm;
+    document.getElementById("currentTemp").value =
+      data.temperature || currentTemp;
+
+    const tempColorElement = document.getElementById("temperatureColor");
+    const pmColorElement = document.getElementById("pmColor");
+
+    if (data.tempColor && tempColorElement) {
+      tempColorElement.style.backgroundColor = data.tempColor;
+    }
+    if (data.pmColor && pmColorElement) {
+      pmColorElement.style.backgroundColor = data.pmColor;
+    }
+
+    // 여기에 hourlyTempColors와 hourlyPmColors를 사용하는 로직을 추가할 수 있습니다.
+    console.log("Hourly Temp Colors:", data.hourlyTempColors);
+    console.log("Hourly PM Colors:", data.hourlyPmColors);
+  }
 }
 
-// 설정값들을 변수에 넣고, 이를 로컬스토리지에 저장
+function updateTempDisplay() {
+  currentTemp = this.value;
+  document.getElementById("currentTempValue").innerText = currentTemp;
+}
+
+function updatePmDisplay() {
+  currentPm = this.value;
+  document.getElementById("currentPmValue").innerText = currentPm;
+}
+
 function fetchSettingsFromDOM() {
   const settings = {
     pmMax: document.getElementById("pmMax").value,
@@ -256,11 +206,10 @@ function fetchSettingsFromDOM() {
     tempMax: document.getElementById("tempMax").value,
     tempColorMin: document.getElementById("tempColorMin").value,
     tempColorMax: document.getElementById("tempColorMax").value,
-    deviceId: deviceId, // 현재 장치 ID 추가
-    location: document.getElementById("location").value, // 사용자 위치 추가
+    deviceId: deviceId,
+    location: document.getElementById("location").value,
   };
 
-  // 설정을 localStorage에 저장
   Object.keys(settings).forEach((key) => {
     localStorage.setItem(key, settings[key]);
   });
