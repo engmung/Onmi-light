@@ -86,25 +86,6 @@ app.post("/setLocation", (req, res) => {
   }
 });
 
-// 온도 배열을 색상 배열로 변환하는 함수
-function convertTemperaturesToColors(
-  tempArray,
-  tempMin,
-  tempMax,
-  tempColorMin,
-  tempColorMax
-) {
-  return tempArray.map((temp) =>
-    interpolateColor(
-      tempMin,
-      tempMax,
-      tempColorMin,
-      tempColorMax,
-      parseInt(temp)
-    )
-  );
-}
-
 // 설정값 업데이트 및 색상계산
 app.post("/updateSettingsAndCalculateColor", async (req, res) => {
   const { deviceId, ...settings } = req.body;
@@ -113,44 +94,45 @@ app.post("/updateSettingsAndCalculateColor", async (req, res) => {
     client.settings = { ...client.settings, ...settings };
     saveSettings();
 
-    // 현재 PM과 온도 색상 계산
+    try {
+      const { hourlyDustLevels, hourlyTemperatures, currentTime } =
+        await fetchDustAndWeatherInfo(client.settings.location);
 
-    const tempColor = interpolateColor(
-      client.settings.tempMin,
-      client.settings.tempMax,
-      client.settings.tempColorMin,
-      client.settings.tempColorMax,
-      settings.temp
-    );
+      const hourlyTempColors = convertToColors(
+        hourlyTemperatures,
+        parseFloat(client.settings.tempMin || 0),
+        parseFloat(client.settings.tempMax || 40),
+        client.settings.tempColorMin || "#0000FF",
+        client.settings.tempColorMax || "#FF0000"
+      ).map(removeHash);
 
-    // 미세먼지 농도가 최대 범위를 초과하는 경우 빨간색, 아니면 하얀색
-    const pmAlertColor =
-      settings.pm > client.settings.pmMax ? "#FF0000" : "#FFFFFF";
+      const hourlyPmColors = convertToColors(
+        hourlyDustLevels,
+        parseFloat(client.settings.pmMin || 0),
+        parseFloat(client.settings.pmMax || 150),
+        client.settings.pmColorMin || "#00FF00",
+        client.settings.pmColorMax || "#FF0000"
+      ).map(removeHash);
 
-    // 위치 기반으로 12시간 온도 데이터를 가져오기
-    const { hourlyTemperatures } = await fetchDustAndWeatherInfo(
-      client.settings.location
-    );
+      const dataToSend = {
+        hourlyTempColors,
+        hourlyPmColors,
+        currentTime,
+      };
 
-    // 12시간 동안의 온도 색상 계산
-    const hourlyTempColors = convertTemperaturesToColors(
-      hourlyTemperatures,
-      client.settings.tempMin,
-      client.settings.tempMax,
-      client.settings.tempColorMin,
-      client.settings.tempColorMax
-    );
+      client.socket.send(JSON.stringify(dataToSend));
+      console.log("Sending data to client:", dataToSend);
 
-    // 클라이언트로 데이터 전송
-    client.socket.send(
-      JSON.stringify({ tempColor, pmAlertColor, hourlyTempColors })
-    );
-    res.json({
-      message: "Settings updated and colors calculated.",
-      tempColor,
-      pmAlertColor,
-      hourlyTempColors,
-    });
+      res.json({
+        message: "Settings updated and colors calculated.",
+        ...dataToSend,
+      });
+    } catch (error) {
+      console.error("Error calculating colors:", error);
+      res
+        .status(500)
+        .json({ message: "Error calculating colors", error: error.message });
+    }
   } else {
     res.status(404).send("Device not connected or not found");
   }
@@ -222,6 +204,11 @@ function loadSettings() {
   }
 }
 
+// 색상 문자열에서 '#' 제거하는 함수
+function removeHash(color) {
+  return color.startsWith("#") ? color.slice(1) : color;
+}
+
 // 세팅값 데이터베이스에 저장하기, 폴더 수정
 function saveSettings() {
   const settingsData = {};
@@ -243,57 +230,95 @@ function saveSettings() {
  * 날씨정보 처리함수
  */
 
-// 날씨 정보와 미세먼지 정보를 파싱하는 함수
 async function fetchDustAndWeatherInfo(location) {
   try {
     const dustUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
-      location + " 미세먼지"
+      location + " 시간별 미세먼지"
     )}`;
     const weatherUrl = `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(
       location + " 온도"
     )}`;
+
     const [dustResponse, weatherResponse] = await axios.all([
       axios.get(dustUrl),
       axios.get(weatherUrl),
     ]);
+
     const dustData = cheerio.load(dustResponse.data);
     const weatherData = cheerio.load(weatherResponse.data);
 
-    // 미세먼지 정보 파싱
-    let dustLevel = dustData("#main_pack .num._value").first().text().trim();
+    // 12시간 동안의 미세먼지 정보 파싱
+    let hourlyDustLevels = [];
+    dustData(
+      "#main_pack .content_wrap._hour._panel .bar_graph_area .graph_body._button_scroller ul li"
+    ).each((index, element) => {
+      if (index >= 3 && index < 15) {
+        // 4번째부터 12개의 li 요소
+        let dustValue = dustData(element)
+          .find(".ly_info > div:nth-child(1) > span")
+          .text()
+          .trim();
+        dustValue = dustValue.replace(/[^0-9]/g, "");
+        if (dustValue) {
+          hourlyDustLevels.push(parseInt(dustValue));
+        }
+      }
+    });
 
-    // 현재 온도 파싱
-    let temperature = weatherData("#main_pack .temperature_text strong")
-      .text()
-      .trim()
-      .match(/-?\d+/)[0];
+    // 현재 미세먼지 레벨을 12시간 예보의 첫 번째 요소로 설정
+    let currentDustLevel = hourlyDustLevels[0]
+      ? hourlyDustLevels[0].toString()
+      : "";
 
-    // 12시간 동안의 온도 파싱
+    // 온도 정보 파싱
+    let temperature = "";
+    let temperatureElement = weatherData("#main_pack .temperature_text strong");
+    if (temperatureElement.length > 0) {
+      let tempMatch = temperatureElement.text().trim().match(/-?\d+/);
+      if (tempMatch) {
+        temperature = tempMatch[0];
+      }
+    }
+
     let hourlyTemperatures = [];
     weatherData("#main_pack .graph_inner._hourly_weather ul li").each(
       (index, element) => {
         if (index < 12) {
-          // 12개의 데이터를 가져오기 위해
           let temp = weatherData(element)
             .find("dd.degree_point > div > div > span")
             .text()
             .trim()
             .replace("°", "");
-          hourlyTemperatures.push(temp);
+          if (temp) {
+            hourlyTemperatures.push(temp);
+          }
         }
       }
     );
 
-    // 결과를 로그로 출력
-    console.log(`12-hour Forecast: ${hourlyTemperatures.join(", ")}`);
+    // 현재 시간 가져오기
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes()
+    ).padStart(2, "0")}`;
 
-    return { dustLevel, temperature, hourlyTemperatures };
+    console.log("Current time:", currentTime); // 디버깅을 위한 로그 추가
+
+    return {
+      currentDustLevel,
+      hourlyDustLevels,
+      temperature,
+      hourlyTemperatures,
+      currentTime,
+    };
   } catch (error) {
     console.error("Error fetching environment data:", error);
     return {
-      dustLevel: "유효한 위치를 입력하세욤",
-      temperature: "이하동문",
+      currentDustLevel: "Error",
+      hourlyDustLevels: [],
+      temperature: "Error",
       hourlyTemperatures: [],
+      currentTime: "Error",
     };
   }
 }
@@ -302,22 +327,29 @@ async function fetchDustAndWeatherInfo(location) {
  * 색상처리 함수
  */
 
-function interpolateColor(min, max, colorStart, colorEnd, value) {
+// 통합된 색상 보간 함수
+function interpolateColor(value, min, max, colorStart, colorEnd) {
+  if (!isValidHexColor(colorStart) || !isValidHexColor(colorEnd)) {
+    console.error("Invalid color values:", { colorStart, colorEnd });
+    return "#000000"; // 기본 색상 반환
+  }
+
   let ratio = (value - min) / (max - min);
   ratio = Math.max(0, Math.min(1, ratio));
   const startRgb = hexToRgb(colorStart);
   const endRgb = hexToRgb(colorEnd);
+
   const r = Math.round(startRgb.r + (endRgb.r - startRgb.r) * ratio);
   const g = Math.round(startRgb.g + (endRgb.g - startRgb.g) * ratio);
   const b = Math.round(startRgb.b + (endRgb.b - startRgb.b) * ratio);
   return rgbToHex(r, g, b);
 }
 
+function isValidHexColor(color) {
+  return typeof color === "string" && /^#[0-9A-Fa-f]{6}$/.test(color);
+}
+
 function hexToRgb(hex) {
-  if (!hex) {
-    console.error("Invalid or undefined hex color:", hex);
-    return null; // 또는 적절한 기본값 반환
-  }
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -325,7 +357,23 @@ function hexToRgb(hex) {
 }
 
 function rgbToHex(r, g, b) {
-  return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b)
+    .toString(16)
+    .slice(1)
+    .padStart(6, "0")}`;
+}
+
+// 값 배열을 색상 배열로 변환하는 함수
+function convertToColors(valueArray, min, max, colorStart, colorEnd) {
+  return valueArray.map((value) =>
+    interpolateColor(
+      parseFloat(value),
+      parseFloat(min),
+      parseFloat(max),
+      colorStart,
+      colorEnd
+    )
+  );
 }
 
 /**
@@ -361,40 +409,45 @@ wss.on("connection", (ws) => {
 });
 
 // 주기적인 업데이트를 위한 코드
-function updateAllDevices() {
-  clients.forEach(async (client, clientId) => {
+async function updateAllDevices() {
+  for (const [clientId, client] of clients.entries()) {
     if (
       client.socket.readyState === WebSocket.OPEN &&
       client.settings.location
     ) {
       try {
-        // 실시간 환경 데이터 가져오기
-        const { dustLevel, temperature } = await fetchDustAndWeatherInfo(
-          client.settings.location
-        );
+        const { hourlyDustLevels, hourlyTemperatures, currentTime } =
+          await fetchDustAndWeatherInfo(client.settings.location);
 
-        // 미세먼지 및 온도에 따른 색상 계산
+        const hourlyTempColors = convertToColors(
+          hourlyTemperatures,
+          parseFloat(client.settings.tempMin || 0),
+          parseFloat(client.settings.tempMax || 40),
+          client.settings.tempColorMin || "#0000FF",
+          client.settings.tempColorMax || "#FF0000"
+        ).map(removeHash);
 
-        const tempColor = interpolateColor(
-          client.settings.tempMin,
-          client.settings.tempMax,
-          client.settings.tempColorMin,
-          client.settings.tempColorMax,
-          parseInt(temperature)
-        );
+        const hourlyPmColors = convertToColors(
+          hourlyDustLevels,
+          parseFloat(client.settings.pmMin || 0),
+          parseFloat(client.settings.pmMax || 150),
+          client.settings.pmColorMin || "#00FF00",
+          client.settings.pmColorMax || "#FF0000"
+        ).map(removeHash);
 
-        // 클라이언트에 색상 데이터 전송
-        client.socket.send(JSON.stringify({ tempColor }));
+        const dataToSend = {
+          hourlyTempColors,
+          hourlyPmColors,
+          currentTime,
+        };
 
-        // 로그에 환경 데이터 기록
-        console.log(
-          `Updated ${clientId}: PM - ${dustLevel}, Temp - ${temperature}`
-        );
+        client.socket.send(JSON.stringify(dataToSend));
+        console.log(`Updated ${clientId}:`, dataToSend);
       } catch (error) {
         console.error(`Failed to update device ${clientId}:`, error);
       }
     }
-  });
+  }
 }
 
 // 주기적으로 업데이트
